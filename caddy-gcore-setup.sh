@@ -181,9 +181,9 @@ create_directories_and_files() {
 download_site_files() {
     info "$(get_string "downloading_files")"
 
-    sudo curl -o /var/www/site/index.html "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/index.html"
-    sudo curl -o /var/www/site/assets/main.js "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/main.js"
-    sudo curl -o /var/www/site/assets/style.css "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/style.css"
+    sudo curl -o /var/www/site/index.html "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/index.html"
+    sudo curl -o /var/www/site/assets/main.js "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/assets/main.js"
+    sudo curl -o /var/www/site/assets/style.css "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/assets/style.css"
      
     if [ "$LANGUAGE" = "en" ]; then
         success "Site files downloaded successfully"

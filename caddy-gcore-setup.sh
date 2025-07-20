@@ -51,7 +51,7 @@ get_string() {
             "english") echo "English" ;;
             "russian") echo "Русский" ;;
             "domain_prompt") echo "Enter your domain (e.g., example.com):" ;;
-            "port_prompt") echo "Enter port (default 80):" ;;
+            "port_prompt") echo "Enter port (default 8443):" ;;
             "token_prompt") echo "Enter your Gcore API token:" ;;
             "checking_docker") echo "Checking Docker installation..." ;;
             "docker_not_found") echo "Docker not found. Installing..." ;;
@@ -77,7 +77,7 @@ get_string() {
             "english") echo "English" ;;
             "russian") echo "Русский" ;;
             "domain_prompt") echo "Введите ваш домен (например, example.com):" ;;
-            "port_prompt") echo "Введите порт (по умолчанию 80):" ;;
+            "port_prompt") echo "Введите порт (по умолчанию 8443):" ;;
             "token_prompt") echo "Введите ваш Gcore API токен:" ;;
             "checking_docker") echo "Проверка установки Docker..." ;;
             "docker_not_found") echo "Docker не найден. Устанавливаем..." ;;
@@ -289,7 +289,7 @@ get_user_input() {
 
     read -p "$(echo -e "${BOLD_CYAN}$(get_string "port_prompt")${RESET}") " PORT
     if [ -z "$PORT" ]; then
-        PORT="80"
+        PORT="8443"
     fi
 
     if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then

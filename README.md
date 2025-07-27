@@ -1,4 +1,4 @@
-# Caddy Gcore DNS Setup 🚀
+# Caddy DNS Setup 🚀
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Platform](https://img.shields.io/badge/Platform-Ubuntu-orange)
 
-**Автоматический скрипт установки Caddy с Gcore DNS для получения SSL сертификатов**
+**Автоматический скрипт установки Caddy с модулем Gcore или CloudFlare DNS**
 
 [![Stars](https://img.shields.io/github/stars/Capybara-z/CaddyGcoreDNS?style=social)](https://github.com/Capybara-z/CaddyGcoreDNS)
 [![Forks](https://img.shields.io/github/forks/Capybara-z/CaddyGcoreDNS?style=social)](https://github.com/Capybara-z/CaddyGcoreDNS)
@@ -31,16 +31,14 @@
 
 ### 🌐 Caddy Server
 - Установка и настройка Caddy сервера
-- Интеграция с Gcore DNS для DNS challenges
-- Автоматическое получение SSL сертификатов
+- Интеграция с Gcore или CloudFlare DNS для DNS
 
 </td>
 <td width="50%" align="center">
 
 ### 🐳 Docker Container
 - Создание кастомного Docker образа
-- Сборка Caddy с Gcore DNS модулем
-- Автоматическое управление контейнером
+- Сборка Caddy с Gcore или CloudFlare DNS модулем
 
 </td>
 </tr>
@@ -62,11 +60,11 @@
 
 - Вариант 1
 ```bash
-bash <(curl -fsSL raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/main/caddy-gcore-setup.sh)
+bash <(curl -fsSL raw.githubusercontent.com/Capybara-z/CaddyDNS/main/caddy-setup.sh)
 ```
 - Вариант 2
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/main/caddy-gcore-setup.sh -o caddy-gcore-setup.sh && chmod +x caddy-gcore-setup.sh && sudo bash ./caddy-gcore-setup.sh
+curl -fsSL https://raw.githubusercontent.com/Capybara-z/CaddyDNS/main/caddy-setup.sh -o caddy-setup.sh && chmod +x caddy-setup.sh && sudo bash ./caddy-setup.sh
 ```
 
 ---
@@ -75,9 +73,9 @@ curl -fsSL https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/main/caddy
 
 <div align="center">
 
-Если скрипт был полезен — поставьте ⭐️ на [GitHub](https://github.com/Capybara-z/CaddyGcoreDNS)!
+Если скрипт был полезен — поставьте ⭐️ на [GitHub](https://github.com/Capybara-z/CaddyDNS)!
 
-[![Star](https://img.shields.io/github/stars/Capybara-z/CaddyGcoreDNS?style=social)](https://github.com/Capybara-z/CaddyGcoreDNS)
+[![Star](https://img.shields.io/github/stars/Capybara-z/CaddyDNS?style=social)](https://github.com/Capybara-z/CaddyDNS)
 
 ### 📱 Контакты
  Telegram: [@KaTTuBaRa](https://t.me/KaTTuBaRa)
@@ -94,6 +92,6 @@ MIT
 
 <div align="center">
 
-**Caddy Gcore DNS Setup** — ваш универсальный помощник для быстрого развертывания сайтов с автоматическим SSL! 🚀
+**Caddy DNS Setup** — ваш универсальный помощник для быстрого развертывания! 🚀
 
 </div> 

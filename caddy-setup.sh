@@ -266,9 +266,7 @@ services:
       context: .
     container_name: caddy-gcore
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    network_mode: "host"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

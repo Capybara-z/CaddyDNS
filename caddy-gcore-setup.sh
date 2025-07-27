@@ -235,7 +235,7 @@ EOF
     acme_dns gcore {env.GCORE_API_TOKEN}
 }
 
-$DOMAIN {
+https://$DOMAIN {
     tls {
         dns gcore {env.GCORE_API_TOKEN}
     }

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Цветовые коды ANSI
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -51,7 +50,6 @@ get_string() {
             "english") echo "English" ;;
             "russian") echo "Русский" ;;
             "domain_prompt") echo "Enter your domain (e.g., example.com):" ;;
-            "port_prompt") echo "Enter port (default 8443):" ;;
             "token_prompt") echo "Enter your Gcore API token:" ;;
             "checking_docker") echo "Checking Docker installation..." ;;
             "docker_not_found") echo "Docker not found. Installing..." ;;
@@ -68,7 +66,7 @@ get_string() {
             "error_occurred") echo "An error occurred during installation." ;;
             "domain_required") echo "Domain is required!" ;;
             "token_required") echo "API token is required!" ;;
-            "port_invalid") echo "Invalid port number!" ;;
+            "caddy_available_at") echo "Your site is now available at: https://" ;;
         esac
     else
         case $key in
@@ -77,7 +75,6 @@ get_string() {
             "english") echo "English" ;;
             "russian") echo "Русский" ;;
             "domain_prompt") echo "Введите ваш домен (например, example.com):" ;;
-            "port_prompt") echo "Введите порт (по умолчанию 8443):" ;;
             "token_prompt") echo "Введите ваш Gcore API токен:" ;;
             "checking_docker") echo "Проверка установки Docker..." ;;
             "docker_not_found") echo "Docker не найден. Устанавливаем..." ;;
@@ -94,7 +91,7 @@ get_string() {
             "error_occurred") echo "Произошла ошибка во время установки." ;;
             "domain_required") echo "Домен обязателен!" ;;
             "token_required") echo "API токен обязателен!" ;;
-            "port_invalid") echo "Неверный номер порта!" ;;
+            "caddy_available_at") echo "Ваш сайт теперь доступен по адресу: https://" ;;
         esac
     fi
 }
@@ -132,11 +129,11 @@ print_header() {
     echo -e "${MAGENTA}────────────────────────────────────────────────────────────${RESET}"
     if [ "$LANGUAGE" = "en" ]; then
         echo -e "${GREEN}Caddy Gcore DNS Setup${RESET}"
-        echo -e "${CYAN}Version: 1.0${RESET}"
+        echo -e "${CYAN}Version: 1.1${RESET}"
         echo -e "${YELLOW}Author: @KaTTuBaRa${RESET}"
     else
         echo -e "${GREEN}Установка Caddy с Gcore DNS${RESET}"
-        echo -e "${CYAN}Версия: 1.0${RESET}"
+        echo -e "${CYAN}Версия: 1.1${RESET}" 
         echo -e "${YELLOW}Автор: @KaTTuBaRa${RESET}"
     fi
     echo -e "${MAGENTA}────────────────────────────────────────────────────────────${RESET}"
@@ -184,7 +181,7 @@ download_site_files() {
     sudo curl -o /var/www/site/index.html "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/index.html"
     sudo curl -o /var/www/site/assets/main.js "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/assets/main.js"
     sudo curl -o /var/www/site/assets/style.css "https://raw.githubusercontent.com/Capybara-z/CaddyGcoreDNS/refs/heads/main/example/assets/style.css"
-     
+      
     if [ "$LANGUAGE" = "en" ]; then
         success "Site files downloaded successfully"
     else
@@ -219,7 +216,9 @@ services:
       context: .
     container_name: caddy-gcore
     restart: unless-stopped
-    network_mode: "host"
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -236,7 +235,7 @@ EOF
     acme_dns gcore {env.GCORE_API_TOKEN}
 }
 
-$DOMAIN:$PORT {
+$DOMAIN {
     tls {
         dns gcore {env.GCORE_API_TOKEN}
     }
@@ -265,9 +264,9 @@ start_container() {
     if [ $? -eq 0 ]; then
         success "$(get_string "installation_complete")"
         if [ "$LANGUAGE" = "en" ]; then
-            echo -e "${GREEN}Your site is now available at: https://$DOMAIN:$PORT${RESET}"
+            echo -e "${GREEN}$(get_string "caddy_available_at")$DOMAIN${RESET}"
         else
-            echo -e "${GREEN}Ваш сайт теперь доступен по адресу: https://$DOMAIN:$PORT${RESET}"
+            echo -e "${GREEN}$(get_string "caddy_available_at")$DOMAIN${RESET}"
         fi
     else
         error "$(get_string "error_occurred")"
@@ -286,16 +285,6 @@ get_user_input() {
             error "$(get_string "domain_required")"
         fi
     done
-
-    read -p "$(echo -e "${BOLD_CYAN}$(get_string "port_prompt")${RESET}") " PORT
-    if [ -z "$PORT" ]; then
-        PORT="8443"
-    fi
-
-    if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
-        error "$(get_string "port_invalid")"
-        exit 1
-    fi
 
     while true; do
         read -p "$(echo -e "${BOLD_CYAN}$(get_string "token_prompt")${RESET}") " GCORE_TOKEN
@@ -328,4 +317,4 @@ main() {
     read -n 1 -s -r -p "$(get_string "press_any_key")"
 }
 
-main 
+main

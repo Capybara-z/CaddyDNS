@@ -234,12 +234,12 @@ create_docker_files() {
         caddy_module_build="github.com/caddy-dns/gcore"
         caddyfile_acme_dns_line="acme_dns gcore {env.GCORE_API_TOKEN}"
         caddyfile_tls_dns_line="dns gcore {env.GCORE_API_TOKEN}"
-        docker_compose_env_vars="      GCORE_API_TOKEN: \"\$GCORE_TOKEN\""
+        docker_compose_env_vars="    environment:\n      GCORE_API_TOKEN: \"$GCORE_TOKEN\""
     elif [ "$DNS_PROVIDER" = "cloudflare" ]; then
         caddy_module_build="github.com/caddy-dns/cloudflare"
         caddyfile_acme_dns_line="acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
         caddyfile_tls_dns_line="dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
-        docker_compose_env_vars="      CLOUDFLARE_API_TOKEN: \"\$CLOUDFLARE_TOKEN\"\n      CLOUDFLARE_EMAIL: \"\$CLOUDFLARE_EMAIL\""
+        docker_compose_env_vars="    environment:\n      CLOUDFLARE_API_TOKEN: \"$CLOUDFLARE_TOKEN\"\n      CLOUDFLARE_EMAIL: \"$CLOUDFLARE_EMAIL\""
     fi
 
     sudo cat > /opt/caddy/Dockerfile << EOF
@@ -271,7 +271,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - /var/www/site:/var/www/site:ro
-    environment:
 $docker_compose_env_vars
 
 volumes:

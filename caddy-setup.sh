@@ -228,18 +228,20 @@ create_docker_files() {
     local caddy_module_build=""
     local caddyfile_acme_dns_line=""
     local caddyfile_tls_dns_line=""
-    local environment_block=""
+    local env_var_line1=""
+    local env_var_line2=""
 
     if [ "$DNS_PROVIDER" = "gcore" ]; then
         caddy_module_build="github.com/caddy-dns/gcore"
         caddyfile_acme_dns_line="acme_dns gcore {env.GCORE_API_TOKEN}"
         caddyfile_tls_dns_line="dns gcore {env.GCORE_API_TOKEN}"
-        environment_block="    environment:\n      GCORE_API_TOKEN: \"$GCORE_TOKEN\""
+        env_var_line1="      GCORE_API_TOKEN: \"$GCORE_TOKEN\""
     elif [ "$DNS_PROVIDER" = "cloudflare" ]; then
         caddy_module_build="github.com/caddy-dns/cloudflare"
         caddyfile_acme_dns_line="acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
         caddyfile_tls_dns_line="dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
-        environment_block="    environment:\n      CLOUDFLARE_API_TOKEN: \"$CLOUDFLARE_TOKEN\"\n      CLOUDFLARE_EMAIL: \"$CLOUDFLARE_EMAIL\""
+        env_var_line1="      CLOUDFLARE_API_TOKEN: \"$CLOUDFLARE_TOKEN\""
+        env_var_line2="      CLOUDFLARE_EMAIL: \"$CLOUDFLARE_EMAIL\""
     fi
 
     sudo cat > /opt/caddy/Dockerfile << EOF
@@ -271,7 +273,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - /var/www/site:/var/www/site:ro
-$environment_block
+    environment:
+$env_var_line1
+$( [ -n "$env_var_line2" ] && echo "$env_var_line2" )
 
 volumes:
   caddy_data:

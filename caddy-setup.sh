@@ -75,6 +75,8 @@ get_string() {
             "select_dns_provider") echo "Select DNS provider:" ;;
             "gcore") echo "Gcore DNS" ;;
             "cloudflare") echo "Cloudflare DNS" ;;
+            "docker_config_dns") echo "Configuring Docker DNS..." ;;
+            "docker_dns_configured") echo "Docker DNS configured and service restarted successfully." ;;
         esac
     else
         case $key in
@@ -107,6 +109,8 @@ get_string() {
             "select_dns_provider") echo "Выберите DNS-провайдера:" ;;
             "gcore") echo "Gcore DNS" ;;
             "cloudflare") echo "Cloudflare DNS" ;;
+            "docker_config_dns") echo "Настройка DNS для Docker..." ;;
+            "docker_dns_configured") echo "DNS для Docker настроен и служба перезапущена." ;;
         esac
     fi
 }
@@ -161,11 +165,11 @@ print_header() {
     echo -e "${MAGENTA}────────────────────────────────────────────────────────────${RESET}"
     if [ "$LANGUAGE" = "en" ]; then
         echo -e "${GREEN}Caddy DNS Setup (Gcore/Cloudflare)${RESET}"
-        echo -e "${CYAN}Version: 1.2${RESET}"
+        echo -e "${CYAN}Version: 1.3${RESET}"
         echo -e "${YELLOW}Author: @KaTTuBaRa${RESET}"
     else
         echo -e "${GREEN}Установка Caddy с DNS (Gcore/Cloudflare)${RESET}"
-        echo -e "${CYAN}Версия: 1.2${RESET}"
+        echo -e "${CYAN}Версия: 1.3${RESET}"
         echo -e "${YELLOW}Автор: @KaTTuBaRa${RESET}"
     fi
     echo -e "${MAGENTA}────────────────────────────────────────────────────────────${RESET}"
@@ -188,6 +192,37 @@ check_and_install_docker() {
         else
             success "Docker уже установлен"
         fi
+    fi
+}
+
+
+configure_docker_dns() {
+    info "$(get_string "docker_config_dns")"
+
+    local daemon_json_path="/etc/docker/daemon.json"
+    local dns_config='{ "dns": ["8.8.8.8", "1.1.1.1"] }'
+
+    if [ -f "$daemon_json_path" ]; then
+        local current_config
+        current_config=$(sudo cat "$daemon_json_path")
+
+        if grep -q '"dns":' "$daemon_json_path"; then
+            warn "DNS settings already exist in daemon.json. Overwriting."
+            sudo sed -i 's/"dns": \[.*\]/"dns": ["8.8.8.8", "1.1.1.1"]/' "$daemon_json_path"
+        else
+            sudo sed -i 's/^}$/, "dns": ["8.8.8.8", "1.1.1.1"]\n}/' "$daemon_json_path"
+        fi
+
+    else
+        echo "$dns_config" | sudo tee "$daemon_json_path" > /dev/null
+    fi
+
+    sudo systemctl restart docker
+    
+    if [ $? -eq 0 ]; then
+        success "$(get_string "docker_dns_configured")"
+    else
+        error "Failed to restart Docker service. Please check manually."
     fi
 }
 
@@ -379,11 +414,11 @@ main() {
     get_user_input
 
     check_and_install_docker
+    configure_docker_dns
     create_directories_and_files
     download_site_files
     create_docker_files
     start_container
-    
     echo
     read -n 1 -s -r -p "$(get_string "press_any_key")"
 }

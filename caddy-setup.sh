@@ -340,6 +340,19 @@ create_docker_files() {
     fi
     build_command+=" \\\\\n    --output /app/caddy-custom"
 
+    local modules_import=""
+    if [ "${#modules[@]}" -gt 0 ]; then
+        for module in "${modules[@]}"; do
+            if [ "$module" = "github.com/caddy-dns/gcore" ]; then
+                modules_import+="\n\t_ \"github.com/caddy-dns/gcore\""
+            elif [ "$module" = "github.com/caddy-dns/cloudflare" ]; then
+                modules_import+="\n\t_ \"github.com/caddy-dns/cloudflare\""
+            elif [ "$module" = "github.com/mholt/caddy-l4" ]; then
+                modules_import+="\n\t_ \"github.com/mholt/caddy-l4\""
+            fi
+        done
+    fi
+
     sudo tee /opt/caddy/Dockerfile > /dev/null << EOF
 FROM golang:1.24-alpine AS builder
 
@@ -348,7 +361,28 @@ RUN apk add --no-cache git
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
 
 WORKDIR /app
-$(echo -e "$build_command")
+
+RUN cat > main.go << 'MAINEOF'
+package main
+
+import (
+	caddycmd "github.com/caddyserver/caddy/v2/cmd"
+
+	// plug in Caddy modules here
+	_ "github.com/caddyserver/caddy/v2/modules/standard"$(echo -e "$modules_import")
+)
+
+func main() {
+	caddycmd.Main()
+}
+MAINEOF
+
+RUN go mod init caddy
+RUN go get github.com/caddyserver/caddy/v2@v2.10.1-0.20250720214045-8ba7eefd0767
+$([ "${#modules[@]}" -gt 0 ] && for module in "${modules[@]}"; do echo "RUN go get $module@latest"; done)
+RUN go mod tidy
+
+RUN go build -o /app/caddy-custom .
 
 FROM caddy:latest
 
@@ -402,7 +436,7 @@ EOF
 
 :8443 {
     bind 127.0.0.1
-    tls
+    tls internal
     root * /var/www/site
     file_server
     header {

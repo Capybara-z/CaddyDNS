@@ -17,6 +17,7 @@ RESET='\033[0m'
 
 LANGUAGE=""
 DNS_PROVIDER=""
+ADD_LAYER4="n"
 
 menu() {
     echo -e "${BOLD_MAGENTA}$1${RESET}"
@@ -77,6 +78,10 @@ get_string() {
             "cloudflare") echo "Cloudflare DNS" ;;
             "docker_config_dns") echo "Configuring Docker DNS..." ;;
             "docker_dns_configured") echo "Docker DNS configured and service restarted successfully." ;;
+            "layer4_only") echo "Layer4 (no DNS modules)" ;;
+            "add_layer4_prompt") echo "Add layer4 support? (y/n):" ;;
+            "cleaning_docker_dns") echo "Cleaning up Docker DNS configuration..." ;;
+            "docker_dns_cleaned") echo "Docker DNS configuration cleaned and service restarted successfully." ;;
         esac
     else
         case $key in
@@ -111,6 +116,10 @@ get_string() {
             "cloudflare") echo "Cloudflare DNS" ;;
             "docker_config_dns") echo "Настройка DNS для Docker..." ;;
             "docker_dns_configured") echo "DNS для Docker настроен и служба перезапущена." ;;
+            "layer4_only") echo "Layer4 (без модулей DNS)" ;;
+            "add_layer4_prompt") echo "Добавить поддержку layer4? (y/n):" ;;
+            "cleaning_docker_dns") echo "Очистка конфигурации DNS для Docker..." ;;
+            "docker_dns_cleaned") echo "Конфигурация DNS для Docker очищена и служба перезапущена." ;;
         esac
     fi
 }
@@ -138,12 +147,14 @@ select_dns_provider() {
     menu "$(get_string "dns_provider_selection")"
     echo -e "${BLUE}1. $(get_string "gcore")${RESET}"
     echo -e "${BLUE}2. $(get_string "cloudflare")${RESET}"
+    echo -e "${BLUE}3. $(get_string "layer4_only")${RESET}"
     echo
     while true; do
         read -p "$(echo -e "${BOLD_CYAN}$(get_string "select_dns_provider")${RESET}") " dns_choice
         case $dns_choice in
             1) DNS_PROVIDER="gcore"; break ;;
             2) DNS_PROVIDER="cloudflare"; break ;;
+            3) DNS_PROVIDER="layer4"; ADD_LAYER4="y"; break ;;
             *) warn "$(get_string "invalid_choice")" ;;
         esac
     done
@@ -226,6 +237,44 @@ configure_docker_dns() {
     fi
 }
 
+cleanup_docker_dns() {
+    info "$(get_string "cleaning_docker_dns")"
+
+    local daemon_json_path="/etc/docker/daemon.json"
+
+    if [ -f "$daemon_json_path" ]; then
+        if grep -q '"dns": \["8\.8\.8\.8", "1\.1\.1\.1"\]' "$daemon_json_path"; then
+            sudo sed -i '/"dns": \["8\.8\.8\.8", "1\.1\.1\.1"\]/d' "$daemon_json_path"
+
+            sudo sed -i 's/,\s*}$/}/' "$daemon_json_path"
+
+            if [ "$(sudo cat "$daemon_json_path" | tr -d '[:space:]')" = "{}" ]; then
+                sudo rm "$daemon_json_path"
+            fi
+            
+            sudo systemctl restart docker
+            
+            if [ $? -eq 0 ]; then
+                success "$(get_string "docker_dns_cleaned")"
+            else
+                error "Failed to restart Docker service after cleanup. Please check manually."
+            fi
+        else
+            if [ "$LANGUAGE" = "en" ]; then
+                info "No DNS cleanup needed - entries not found or already removed."
+            else
+                info "Очистка DNS не требуется - записи не найдены или уже удалены."
+            fi
+        fi
+    else
+        if [ "$LANGUAGE" = "en" ]; then
+            info "No Docker daemon.json file found - nothing to clean up."
+        else
+            info "Файл Docker daemon.json не найден - нечего очищать."
+        fi
+    fi
+}
+
 create_directories_and_files() {
     info "$(get_string "creating_directories")"
 
@@ -260,26 +309,38 @@ download_site_files() {
 create_docker_files() {
     info "$(get_string "creating_docker_files")"
 
-    local caddy_module_build=""
+    local modules=()
     local caddyfile_acme_dns_line=""
     local caddyfile_tls_dns_line=""
     local env_var_line1=""
     local env_var_line2=""
 
     if [ "$DNS_PROVIDER" = "gcore" ]; then
-        caddy_module_build="github.com/caddy-dns/gcore"
+        modules+=("github.com/caddy-dns/gcore")
         caddyfile_acme_dns_line="acme_dns gcore {env.GCORE_API_TOKEN}"
         caddyfile_tls_dns_line="dns gcore {env.GCORE_API_TOKEN}"
         env_var_line1="      GCORE_API_TOKEN: \"$GCORE_TOKEN\""
     elif [ "$DNS_PROVIDER" = "cloudflare" ]; then
-        caddy_module_build="github.com/caddy-dns/cloudflare"
+        modules+=("github.com/caddy-dns/cloudflare")
         caddyfile_acme_dns_line="acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
         caddyfile_tls_dns_line="dns cloudflare {env.CLOUDFLARE_API_TOKEN} {env.CLOUDFLARE_EMAIL}"
         env_var_line1="      CLOUDFLARE_API_TOKEN: \"$CLOUDFLARE_TOKEN\""
         env_var_line2="      CLOUDFLARE_EMAIL: \"$CLOUDFLARE_EMAIL\""
     fi
 
-    sudo cat > /opt/caddy/Dockerfile << EOF
+    if [ "$ADD_LAYER4" = "y" ]; then
+        modules+=("github.com/mholt/caddy-l4")
+    fi
+
+    local build_command="RUN xcaddy build"
+    if [ "${#modules[@]}" -gt 0 ]; then
+        for module in "${modules[@]}"; do
+            build_command+=" \\\\\n    --with $module"
+        done
+    fi
+    build_command+=" \\\\\n    --output /app/caddy-custom"
+
+    sudo tee /opt/caddy/Dockerfile > /dev/null << EOF
 FROM golang:1.24-alpine AS builder
 
 RUN apk add --no-cache git
@@ -287,16 +348,22 @@ RUN apk add --no-cache git
 RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
 
 WORKDIR /app
-RUN xcaddy build \\
-    --with $caddy_module_build \\
-    --output /app/caddy-custom
+$(echo -e "$build_command")
 
 FROM caddy:latest
 
 COPY --from=builder /app/caddy-custom /usr/bin/caddy
 EOF
 
-    sudo cat > /opt/caddy/docker-compose.yml << EOF
+    local env_block=""
+    if [ -n "$env_var_line1" ]; then
+        env_block="    environment:\n$env_var_line1"
+        if [ -n "$env_var_line2" ]; then
+            env_block+="\n$env_var_line2"
+        fi
+    fi
+
+    sudo tee /opt/caddy/docker-compose.yml > /dev/null << EOF
 services:
   caddy:
     build:
@@ -307,16 +374,77 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-      - /var/www/site:/var/www/site:ro
-    environment:
-$env_var_line1
-$( [ -n "$env_var_line2" ] && echo "$env_var_line2" )
+      - /var/www/site:/var/www/site:ro$([ -n "$env_block" ] && echo -e "\n$env_block")
 
 volumes:
   caddy_data:
 EOF
 
-    sudo cat > /opt/caddy/Caddyfile << EOF
+    if [ "$DNS_PROVIDER" = "layer4" ]; then
+        sudo tee /opt/caddy/Caddyfile > /dev/null << EOF
+{
+    layer4 {
+        :443 {
+            @tls_$DOMAIN tls sni $DOMAIN
+            route @tls_$DOMAIN {
+                proxy 127.0.0.1:8443
+            }
+            route {
+                proxy 127.0.0.1:8080
+            }
+        }
+    }
+}
+
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+:8443 {
+    bind 127.0.0.1
+    tls
+    root * /var/www/site
+    file_server
+    header {
+        X-Real-IP {remote_host}
+    }
+}
+EOF
+    elif [ "$ADD_LAYER4" = "y" ]; then
+        sudo tee /opt/caddy/Caddyfile > /dev/null << EOF
+{
+    $caddyfile_acme_dns_line
+    layer4 {
+        :443 {
+            @tls_$DOMAIN tls sni $DOMAIN
+            route @tls_$DOMAIN {
+                proxy 127.0.0.1:8443
+            }
+            route {
+                proxy 127.0.0.1:8080
+            }
+        }
+    }
+}
+
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+:8443 {
+    bind 127.0.0.1
+    tls $DOMAIN {
+        $caddyfile_tls_dns_line
+    }
+    root * /var/www/site
+    file_server
+    header {
+        X-Real-IP {remote_host}
+    }
+}
+EOF
+    else
+        sudo tee /opt/caddy/Caddyfile > /dev/null << EOF
 {
     $caddyfile_acme_dns_line
 }
@@ -332,6 +460,7 @@ https://$DOMAIN {
     }
 }
 EOF
+    fi
 
     if [ "$LANGUAGE" = "en" ]; then
         success "Docker files created successfully"
@@ -354,6 +483,8 @@ start_container() {
         else
             echo -e "${GREEN}$(get_string "caddy_available_at")$DOMAIN${RESET}"
         fi
+
+        cleanup_docker_dns
     else
         error "$(get_string "error_occurred")"
         exit 1
@@ -397,6 +528,17 @@ get_user_input() {
             else
                 error "$(get_string "email_required")"
             fi
+        done
+    fi
+
+    if [ "$DNS_PROVIDER" = "gcore" ] || [ "$DNS_PROVIDER" = "cloudflare" ]; then
+        while true; do
+            read -p "$(echo -e "${BOLD_CYAN}$(get_string "add_layer4_prompt")${RESET}") " layer4_choice
+            case $layer4_choice in
+                [Yy]* ) ADD_LAYER4="y"; break ;;
+                [Nn]* ) ADD_LAYER4="n"; break ;;
+                * ) warn "$(get_string "invalid_choice")" ;;
+            esac
         done
     fi
 }
